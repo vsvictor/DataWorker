@@ -1,0 +1,4 @@
+Building and linking librdkafka statically
+Running command: "cp -a librdkafka/. /home/runner/work/DataWorker/DataWorker/target/debug/build/rdkafka-sys-f4d1dca3807a56c7/out" in dir: .
+Running command: "/home/runner/work/DataWorker/DataWorker/target/debug/build/rdkafka-sys-f4d1dca3807a56c7/out/configure --disable-ssl --disable-gssapi --disable-curl --disable-zstd --disable-lz4-ext" in dir: /home/runner/work/DataWorker/DataWorker/target/debug/build/rdkafka-sys-f4d1dca3807a56c7/out
+Running command: "make libs" in dir: /home/runner/work/DataWorker/DataWorker/target/debug/build/rdkafka-sys-f4d1dca3807a56c7/out

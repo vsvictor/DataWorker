@@ -1,0 +1,1 @@
+Result<std::option::Option<RequestResolver<h3_quinn::Connection, _>>, h3::error::ConnectionError>
