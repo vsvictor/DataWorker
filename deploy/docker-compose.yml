@@ -1,0 +1,174 @@
+version: "3.9"
+
+services:
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+  redpanda:
+    image: redpandadata/redpanda:v23.3.11
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "1G"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - PLAINTEXT://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - PLAINTEXT://redpanda:9092
+      - --pandaproxy-addr
+      - 0.0.0.0:8082
+      - --advertise-pandaproxy-addr
+      - redpanda:8082
+    ports:
+      - "9092:9092"
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: app
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Kafka topic initialisation ───────────────────────────────────────────────
+  redpanda-init:
+    image: redpandadata/redpanda:v23.3.11
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        rpk topic create users access auth audit \
+          --brokers redpanda:9092 || true
+
+  # ── Services ─────────────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ..
+      dockerfile: services/auth-service/Dockerfile
+    environment:
+      RUST_LOG: info
+      AUTH_BIND: "0.0.0.0:8080"
+      MONGO_URI: "mongodb://mongo:27017"
+      REDIS_URI: "redis://redis:6379"
+      ISSUER: "http://auth-service:8080"
+      KAFKA_BROKERS: "redpanda:9092"
+      JWT_SECRET: "dev-secret-change-in-production"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+
+  user-service:
+    build:
+      context: ..
+      dockerfile: services/user-service/Dockerfile
+    environment:
+      RUST_LOG: info
+      USER_BIND: "0.0.0.0:8081"
+      MONGO_URI: "mongodb://mongo:27017"
+      KAFKA_BROKERS: "redpanda:9092"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
+    ports:
+      - "8081:8081"
+
+  policy-service:
+    build:
+      context: ..
+      dockerfile: services/policy-service/Dockerfile
+    environment:
+      RUST_LOG: info
+      POLICY_BIND: "0.0.0.0:8082"
+      MONGO_URI: "mongodb://mongo:27017"
+      REDIS_URI: "redis://redis:6379"
+      KAFKA_BROKERS: "redpanda:9092"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
+    ports:
+      - "8083:8082"
+
+  worker:
+    build:
+      context: ..
+      dockerfile: services/worker/Dockerfile
+    environment:
+      RUST_LOG: info
+      MONGO_URI: "mongodb://mongo:27017"
+      REDIS_URI: "redis://redis:6379"
+      KAFKA_BROKERS: "redpanda:9092"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      redpanda-init:
+        condition: service_completed_successfully
+
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: services/api-gateway/Dockerfile
+    environment:
+      RUST_LOG: info
+      GATEWAY_BIND: "0.0.0.0:4433"
+      AUTH_SERVICE_URL: "http://auth-service:8080"
+      USER_SERVICE_URL: "http://user-service:8081"
+      POLICY_SERVICE_URL: "http://policy-service:8082"
+      JWT_SECRET: "dev-secret-change-in-production"
+      TLS_CERT: "/app/certs/gateway.crt"
+      TLS_KEY: "/app/certs/gateway.key"
+    depends_on:
+      - auth-service
+      - user-service
+      - policy-service
+    ports:
+      - "4433:4433/udp"   # HTTP/3 / QUIC
+
+  # ── Scale-out example (2 user-service replicas) ──────────────────────────────
+  # Uncomment to run multiple replicas:
+  # user-service-2:
+  #   extends:
+  #     service: user-service
+  #   ports:
+  #     - "8084:8081"
