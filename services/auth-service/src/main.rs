@@ -165,10 +165,13 @@ async fn authorize(
     };
 
     let valid = {
-        let parsed = PasswordHash::new(&user.password_hash).unwrap();
-        Argon2::default()
-            .verify_password(password.as_bytes(), &parsed)
-            .is_ok()
+        if let Ok(parsed) = PasswordHash::new(&user.password_hash) {
+            Argon2::default()
+                .verify_password(password.as_bytes(), &parsed)
+                .is_ok()
+        } else {
+            false
+        }
     };
     if !valid {
         return (StatusCode::UNAUTHORIZED, "invalid credentials").into_response();
