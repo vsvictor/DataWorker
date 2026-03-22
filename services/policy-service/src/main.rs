@@ -76,7 +76,7 @@ async fn authorize(
             "subject": &req.subject,
             "action": &req.action,
             "resource": &req.resource,
-        }, None)
+        })
         .await
         .unwrap_or(None);
 

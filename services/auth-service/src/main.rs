@@ -157,7 +157,7 @@ async fn authorize(
     // Verify credentials
     let user = match st
         .users
-        .find_one(doc! { "username": &username }, None)
+        .find_one(doc! { "username": &username })
         .await
     {
         Ok(Some(u)) => u,
@@ -281,7 +281,7 @@ async fn token(
         // Load user
         let user = match st
             .users
-            .find_one(doc! { "_id": &user_id }, None)
+            .find_one(doc! { "_id": &user_id })
             .await
         {
             Ok(Some(u)) => u,
@@ -411,7 +411,7 @@ async fn userinfo(
         Ok(data) => {
             let user = st
                 .users
-                .find_one(doc! { "_id": &data.claims.sub }, None)
+                .find_one(doc! { "_id": &data.claims.sub })
                 .await
                 .ok()
                 .flatten();
@@ -486,7 +486,7 @@ async fn register(
         roles: vec!["user".to_string()],
     };
 
-    match st.users.insert_one(user, None).await {
+    match st.users.insert_one(user).await {
         Ok(_) => {
             // Publish user.created event
             let event = common::event::EventEnvelope::new(

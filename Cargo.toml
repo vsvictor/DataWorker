@@ -23,7 +23,7 @@ time = { version = "0.3", features = ["serde-human-readable", "formatting", "par
 tower = "0.4"
 tower-http = { version = "0.5", features = ["trace", "cors", "request-id"] }
 hyper = { version = "1", features = ["full"] }
-mongodb = { version = "2", features = ["tokio-runtime"] }
+mongodb = { version = "3.2.5" }
 redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
 rdkafka = { version = "0.36", features = ["tokio"] }
 quinn = "0.11"

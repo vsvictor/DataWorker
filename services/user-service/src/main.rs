@@ -64,7 +64,7 @@ async fn create_user(
         permissions: vec![],
     };
 
-    match st.users.insert_one(user.clone(), None).await {
+    match st.users.insert_one(user.clone()).await {
         Ok(_) => {
             let event = EventEnvelope::new(
                 event_types::USER_CREATED,
@@ -92,7 +92,7 @@ async fn create_user(
 
 async fn list_users(State(st): State<Arc<AppState>>) -> impl IntoResponse {
     use futures::TryStreamExt;
-    match st.users.find(doc! {}, None).await {
+    match st.users.find(doc! {}).await {
         Ok(cursor) => {
             let users: Vec<User> = cursor.try_collect().await.unwrap_or_default();
             Json(users).into_response()
@@ -105,7 +105,7 @@ async fn get_user(
     State(st): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    match st.users.find_one(doc! { "_id": &id }, None).await {
+    match st.users.find_one(doc! { "_id": &id }).await {
         Ok(Some(u)) => Json(u).into_response(),
         Ok(None) => (StatusCode::NOT_FOUND, "user not found").into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
@@ -133,7 +133,7 @@ async fn update_user(
 
     match st
         .users
-        .update_one(doc! { "_id": &id }, doc! { "$set": update_doc }, None)
+        .update_one(doc! { "_id": &id }, doc! { "$set": update_doc })
         .await
     {
         Ok(r) if r.matched_count > 0 => {
@@ -162,7 +162,7 @@ async fn delete_user(
     State(st): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    match st.users.delete_one(doc! { "_id": &id }, None).await {
+    match st.users.delete_one(doc! { "_id": &id }).await {
         Ok(r) if r.deleted_count > 0 => {
             let event = EventEnvelope::new(
                 event_types::USER_DELETED,
@@ -200,7 +200,6 @@ async fn assign_role(
         .update_one(
             doc! { "_id": &id },
             doc! { "$addToSet": { "roles": &req.role } },
-            None,
         )
         .await
     {

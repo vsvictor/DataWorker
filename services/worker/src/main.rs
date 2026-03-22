@@ -44,7 +44,7 @@ async fn handle_event(state: &WorkerState, event: EventEnvelope) {
         occurred_at: event.occurred_at.to_rfc3339(),
         data: event.data.clone(),
     };
-    if let Err(e) = state.audit_log.insert_one(entry, None).await {
+    if let Err(e) = state.audit_log.insert_one(entry).await {
         tracing::error!(error = %e, "Failed to write audit entry");
     }
 
